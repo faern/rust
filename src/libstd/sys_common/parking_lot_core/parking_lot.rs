@@ -558,9 +558,9 @@ where
 // Non-generic version to reduce monomorphization cost
 unsafe fn park_internal(
     key: usize,
-    validate: &mut FnMut() -> bool,
-    before_sleep: &mut FnMut(),
-    timed_out: &mut FnMut(usize, bool),
+    validate: &mut dyn FnMut() -> bool,
+    before_sleep: &mut dyn FnMut(),
+    timed_out: &mut dyn FnMut(usize, bool),
     park_token: ParkToken,
     timeout: Option<Instant>,
 ) -> ParkResult {
@@ -698,7 +698,7 @@ where
 // Non-generic version to reduce monomorphization cost
 unsafe fn unpark_one_internal(
     key: usize,
-    callback: &mut FnMut(UnparkResult) -> UnparkToken,
+    callback: &mut dyn FnMut(UnparkResult) -> UnparkToken,
 ) -> UnparkResult {
     // Lock the bucket for the given key
     let bucket = lock_bucket(key);
@@ -811,8 +811,8 @@ where
 unsafe fn unpark_requeue_internal(
     key_from: usize,
     key_to: usize,
-    validate: &mut FnMut() -> RequeueOp,
-    callback: &mut FnMut(RequeueOp, UnparkResult) -> UnparkToken,
+    validate: &mut dyn FnMut() -> RequeueOp,
+    callback: &mut dyn FnMut(RequeueOp, UnparkResult) -> UnparkToken,
 ) -> UnparkResult {
     // Lock the two buckets for the given key
     let (bucket_from, bucket_to) = lock_bucket_pair(key_from, key_to);
@@ -949,8 +949,8 @@ where
 // Non-generic version to reduce monomorphization cost
 unsafe fn unpark_filter_internal(
     key: usize,
-    filter: &mut FnMut(ParkToken) -> FilterOp,
-    callback: &mut FnMut(UnparkResult) -> UnparkToken,
+    filter: &mut dyn FnMut(ParkToken) -> FilterOp,
+    callback: &mut dyn FnMut(UnparkResult) -> UnparkToken,
 ) -> UnparkResult {
     // Lock the bucket for the given key
     let bucket = lock_bucket(key);
