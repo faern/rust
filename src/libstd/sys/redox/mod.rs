@@ -42,6 +42,8 @@ pub mod stdio;
 pub mod syscall;
 pub mod thread;
 pub mod thread_local;
+#[path = "../unix/thread_parker/pthread.rs"]
+pub mod thread_parker;
 pub mod time;
 
 #[cfg(not(test))]

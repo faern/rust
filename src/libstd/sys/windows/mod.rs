@@ -49,6 +49,7 @@ pub mod rwlock;
 pub mod stack_overflow;
 pub mod thread;
 pub mod thread_local;
+pub mod thread_parker;
 pub mod time;
 pub mod stdio;
 
