@@ -45,6 +45,7 @@ pub mod backtrace;
 pub mod condvar;
 pub mod io;
 pub mod mutex;
+pub mod parking_lot_core;
 pub mod poison;
 pub mod remutex;
 pub mod rwlock;
@@ -65,6 +66,14 @@ cfg_if! {
         pub use sys::net;
     } else {
         pub mod net;
+    }
+}
+
+cfg_if! {
+    if #[cfg(any(windows, unix))] {
+        pub use sys::thread_parker;
+    } else {
+        pub mod thread_parker;
     }
 }
 
