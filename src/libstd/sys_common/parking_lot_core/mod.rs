@@ -37,8 +37,6 @@
 //! For example, one could create an `ArcMutex` type that combines the atomic
 //! reference count and the two mutex bits in the same atomic word.
 
-#![warn(missing_docs)]
-#![cfg_attr(target_os = "linux", feature(integer_atomics))]
 
 mod parking_lot;
 mod spinwait;
