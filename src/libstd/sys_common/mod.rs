@@ -45,6 +45,7 @@ pub mod backtrace;
 pub mod condvar;
 pub mod io;
 pub mod mutex;
+pub mod parking_lot;
 pub mod parking_lot_core;
 pub mod poison;
 pub mod remutex;
