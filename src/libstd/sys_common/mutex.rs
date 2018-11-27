@@ -8,14 +8,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use sys::mutex as imp;
+use super::parking_lot::raw_mutex::RawMutex;
 
 /// An OS-based mutual exclusion lock.
 ///
 /// This is the thinnest cross-platform wrapper around OS mutexes. All usage of
 /// this mutex is unsafe and it is recommended to instead use the safe wrapper
 /// at the top level of the crate instead of this type.
-pub struct Mutex(imp::Mutex);
+pub struct Mutex(RawMutex);
 
 unsafe impl Sync for Mutex {}
 
@@ -28,7 +28,7 @@ impl Mutex {
     /// mutex is ever used reentrantly, i.e., `raw_lock` or `try_lock`
     /// are called by the thread currently holding the lock.
     #[unstable(feature = "sys_internals", issue = "0")] // FIXME: min_const_fn
-    pub const fn new() -> Mutex { Mutex(imp::Mutex::new()) }
+    pub const fn new() -> Mutex { Mutex(RawMutex::INIT) }
 
     /// Prepare the mutex for use.
     ///
@@ -37,7 +37,7 @@ impl Mutex {
     /// Calling it in parallel with or after any operation (including another
     /// `init()`) is undefined behavior.
     #[inline]
-    pub unsafe fn init(&mut self) { self.0.init() }
+    pub unsafe fn init(&mut self) { }
 
     /// Locks the mutex blocking the current thread until it is available.
     ///
@@ -77,19 +77,19 @@ impl Mutex {
     /// Behavior is undefined if there are current or will be future users of
     /// this mutex.
     #[inline]
-    pub unsafe fn destroy(&self) { self.0.destroy() }
+    pub unsafe fn destroy(&self) { }
 }
 
 // not meant to be exported to the outside world, just the containing module
-pub fn raw(mutex: &Mutex) -> &imp::Mutex { &mutex.0 }
+pub fn raw(mutex: &Mutex) -> &RawMutex { &mutex.0 }
 
 #[must_use]
 /// A simple RAII utility for the above Mutex without the poisoning semantics.
-pub struct MutexGuard<'a>(&'a imp::Mutex);
+pub struct MutexGuard<'a>(&'a RawMutex);
 
 impl<'a> Drop for MutexGuard<'a> {
     #[inline]
     fn drop(&mut self) {
-        unsafe { self.0.unlock(); }
+        self.0.unlock();
     }
 }
