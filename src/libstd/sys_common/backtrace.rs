@@ -17,7 +17,7 @@ use io;
 use str;
 use sync::atomic::{self, Ordering};
 use path::{self, Path};
-use sys::mutex::Mutex;
+use sys_common::parking_lot::raw_mutex::RawMutex;
 use ptr;
 
 pub use sys::backtrace::{
@@ -50,16 +50,14 @@ const MAX_NB_FRAMES: usize = 100;
 
 /// Prints the current backtrace.
 pub fn print(w: &mut dyn Write, format: PrintFormat) -> io::Result<()> {
-    static LOCK: Mutex = Mutex::new();
+    static LOCK: RawMutex = RawMutex::INIT;
 
     // Use a lock to prevent mixed output in multithreading context.
     // Some platforms also requires it, like `SymFromAddr` on Windows.
-    unsafe {
-        LOCK.lock();
-        let res = _print(w, format);
-        LOCK.unlock();
-        res
-    }
+    LOCK.lock();
+    let res = _print(w, format);
+    LOCK.unlock();
+    res
 }
 
 fn _print(w: &mut dyn Write, format: PrintFormat) -> io::Result<()> {
