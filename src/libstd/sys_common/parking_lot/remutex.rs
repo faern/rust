@@ -24,7 +24,7 @@ impl RawThreadId {
     }
 }
 
-struct RawReentrantMutex {
+pub struct RawReentrantMutex {
     owner: AtomicUsize,
     lock_count: Cell<usize>,
     mutex: RawMutex,
@@ -32,6 +32,13 @@ struct RawReentrantMutex {
 }
 
 impl RawReentrantMutex {
+    pub const INIT: RawReentrantMutex = RawReentrantMutex {
+        owner: AtomicUsize::new(0),
+        lock_count: Cell::new(0),
+        mutex: RawMutex::INIT,
+        get_thread_id: RawThreadId::INIT,
+    };
+
     #[inline]
     fn lock_internal<F: FnOnce() -> bool>(&self, try_lock: F) -> bool {
         let id = self.get_thread_id.nonzero_thread_id();
@@ -53,7 +60,7 @@ impl RawReentrantMutex {
     }
 
     #[inline]
-    fn lock(&self) {
+    pub fn lock(&self) {
         self.lock_internal(|| {
             self.mutex.lock();
             true
@@ -61,12 +68,12 @@ impl RawReentrantMutex {
     }
 
     #[inline]
-    fn try_lock(&self) -> bool {
+    pub fn try_lock(&self) -> bool {
         self.lock_internal(|| self.mutex.try_lock())
     }
 
     #[inline]
-    fn unlock(&self) {
+    pub fn unlock(&self) {
         let lock_count = self.lock_count.get() - 1;
         if lock_count == 0 {
             self.owner.store(0, Ordering::Relaxed);
