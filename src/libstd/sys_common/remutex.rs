@@ -12,7 +12,7 @@ use fmt;
 use marker;
 use ops::Deref;
 use sys_common::poison::{self, TryLockError, TryLockResult, LockResult};
-use sys::mutex as sys;
+use sys_common::parking_lot::remutex::RawReentrantMutex;
 use panic::{UnwindSafe, RefUnwindSafe};
 
 /// A re-entrant mutual exclusion
@@ -21,7 +21,7 @@ use panic::{UnwindSafe, RefUnwindSafe};
 /// available. The thread which has already locked the mutex can lock it
 /// multiple times without blocking, preventing a common source of deadlocks.
 pub struct ReentrantMutex<T> {
-    inner: Box<sys::ReentrantMutex>,
+    inner: Box<RawReentrantMutex>,
     poison: poison::Flag,
     data: T,
 }
@@ -59,14 +59,10 @@ impl<'a, T> !marker::Send for ReentrantMutexGuard<'a, T> {}
 impl<T> ReentrantMutex<T> {
     /// Creates a new reentrant mutex in an unlocked state.
     pub fn new(t: T) -> ReentrantMutex<T> {
-        unsafe {
-            let mut mutex = ReentrantMutex {
-                inner: box sys::ReentrantMutex::uninitialized(),
-                poison: poison::Flag::new(),
-                data: t,
-            };
-            mutex.inner.init();
-            mutex
+        ReentrantMutex {
+            inner: box RawReentrantMutex::INIT,
+            poison: poison::Flag::new(),
+            data: t,
         }
     }
 
@@ -83,7 +79,7 @@ impl<T> ReentrantMutex<T> {
     /// this call will return failure if the mutex would otherwise be
     /// acquired.
     pub fn lock(&self) -> LockResult<ReentrantMutexGuard<T>> {
-        unsafe { self.inner.lock() }
+        self.inner.lock();
         ReentrantMutexGuard::new(&self)
     }
 
@@ -100,7 +96,7 @@ impl<T> ReentrantMutex<T> {
     /// this call will return failure if the mutex would otherwise be
     /// acquired.
     pub fn try_lock(&self) -> TryLockResult<ReentrantMutexGuard<T>> {
-        if unsafe { self.inner.try_lock() } {
+        if self.inner.try_lock() {
             Ok(ReentrantMutexGuard::new(&self)?)
         } else {
             Err(TryLockError::WouldBlock)
@@ -109,12 +105,7 @@ impl<T> ReentrantMutex<T> {
 }
 
 impl<T> Drop for ReentrantMutex<T> {
-    fn drop(&mut self) {
-        // This is actually safe b/c we know that there is no further usage of
-        // this mutex (it's up to the user to arrange for a mutex to get
-        // dropped, that's not our job)
-        unsafe { self.inner.destroy() }
-    }
+    fn drop(&mut self) { }
 }
 
 impl<T: fmt::Debug + 'static> fmt::Debug for ReentrantMutex<T> {
@@ -159,10 +150,8 @@ impl<'mutex, T> Deref for ReentrantMutexGuard<'mutex, T> {
 impl<'a, T> Drop for ReentrantMutexGuard<'a, T> {
     #[inline]
     fn drop(&mut self) {
-        unsafe {
-            self.__lock.poison.done(&self.__poison);
-            self.__lock.inner.unlock();
-        }
+        self.__lock.poison.done(&self.__poison);
+        self.__lock.inner.unlock();
     }
 }
 
