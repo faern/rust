@@ -22,7 +22,6 @@ use mem;
 use os::windows::ffi::OsStrExt;
 use path::Path;
 use ptr;
-use sys::mutex::Mutex;
 use sys::c;
 use sys::fs::{OpenOptions, File};
 use sys::handle::Handle;
@@ -31,6 +30,7 @@ use sys::stdio;
 use sys::cvt;
 use sys_common::{AsInner, FromInner, IntoInner};
 use sys_common::process::{CommandEnv, EnvKey};
+use sys_common::parking_lot::raw_mutex::RawMutex;
 use borrow::Borrow;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,7 +98,7 @@ pub struct StdioPipes {
 }
 
 struct DropGuard<'a> {
-    lock: &'a Mutex,
+    lock: &'a RawMutex,
 }
 
 impl Command {
@@ -186,7 +186,7 @@ impl Command {
         //
         // For more information, msdn also has an article about this race:
         // http://support.microsoft.com/kb/315939
-        static CREATE_PROCESS_LOCK: Mutex = Mutex::new();
+        static CREATE_PROCESS_LOCK: RawMutex = RawMutex::INIT;
         let _guard = DropGuard::new(&CREATE_PROCESS_LOCK);
 
         let mut pipes = StdioPipes {
@@ -238,19 +238,15 @@ impl fmt::Debug for Command {
 }
 
 impl<'a> DropGuard<'a> {
-    fn new(lock: &'a Mutex) -> DropGuard<'a> {
-        unsafe {
-            lock.lock();
-            DropGuard { lock }
-        }
+    fn new(lock: &'a RawMutex) -> DropGuard<'a> {
+        lock.lock();
+        DropGuard { lock }
     }
 }
 
 impl<'a> Drop for DropGuard<'a> {
     fn drop(&mut self) {
-        unsafe {
-            self.lock.unlock();
-        }
+        self.lock.unlock();
     }
 }
 
