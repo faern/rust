@@ -10,7 +10,7 @@
 
 use time::Duration;
 use sys_common::mutex::{self, Mutex};
-use sys::condvar as imp;
+use sys_common::parking_lot::condvar::Condvar as RawCondvar;
 
 /// An OS-based condition variable.
 ///
@@ -18,7 +18,7 @@ use sys::condvar as imp;
 /// condition variables. It is consequently entirely unsafe to use. It is
 /// recommended to use the safer types at the top level of this crate instead of
 /// this type.
-pub struct Condvar(imp::Condvar);
+pub struct Condvar(RawCondvar);
 
 impl Condvar {
     /// Creates a new condition variable for use.
@@ -26,22 +26,22 @@ impl Condvar {
     /// Behavior is undefined if the condition variable is moved after it is
     /// first used with any of the functions below.
     #[unstable(feature = "sys_internals", issue = "0")] // FIXME: min_const_fn
-    pub const fn new() -> Condvar { Condvar(imp::Condvar::new()) }
+    pub const fn new() -> Condvar { Condvar(RawCondvar::new()) }
 
     /// Prepares the condition variable for use.
     ///
     /// This should be called once the condition variable is at a stable memory
     /// address.
     #[inline]
-    pub unsafe fn init(&mut self) { self.0.init() }
+    pub unsafe fn init(&mut self) { }
 
     /// Signals one waiter on this condition variable to wake up.
     #[inline]
-    pub unsafe fn notify_one(&self) { self.0.notify_one() }
+    pub unsafe fn notify_one(&self) { self.0.notify_one(); }
 
     /// Awakens all current waiters on this condition variable.
     #[inline]
-    pub unsafe fn notify_all(&self) { self.0.notify_all() }
+    pub unsafe fn notify_all(&self) { self.0.notify_all(); }
 
     /// Waits for a signal on the specified mutex.
     ///
@@ -59,7 +59,7 @@ impl Condvar {
     /// on this condition variable.
     #[inline]
     pub unsafe fn wait_timeout(&self, mutex: &Mutex, dur: Duration) -> bool {
-        self.0.wait_timeout(mutex::raw(mutex), dur)
+        !self.0.wait_for(mutex::raw(mutex), dur).timed_out()
     }
 
     /// Deallocates all resources associated with this condition variable.
@@ -67,5 +67,5 @@ impl Condvar {
     /// Behavior is undefined if there are current or will be future users of
     /// this condition variable.
     #[inline]
-    pub unsafe fn destroy(&self) { self.0.destroy() }
+    pub unsafe fn destroy(&self) { }
 }
