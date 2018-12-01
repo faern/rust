@@ -8,7 +8,6 @@
 use super::elision::{have_elision, AtomicElisionExt};
 use super::super::parking_lot_core::{
     self,
-    deadlock,
     FilterOp,
     ParkResult,
     ParkToken,
@@ -59,7 +58,6 @@ impl RawRwLock {
             let result = self.lock_exclusive_slow(None);
             debug_assert!(result);
         }
-        unsafe { deadlock::acquire_resource(self as *const _ as usize) };
     }
 
     /// Attempts to acquire an exclusive lock without blocking.
@@ -70,7 +68,6 @@ impl RawRwLock {
             .compare_exchange(0, EXCLUSIVE_GUARD, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
         {
-            unsafe { deadlock::acquire_resource(self as *const _ as usize) };
             true
         } else {
             false
@@ -80,7 +77,6 @@ impl RawRwLock {
     /// Releases an exclusive lock.
     #[inline]
     pub fn unlock_exclusive(&self) {
-        unsafe { deadlock::release_resource(self as *const _ as usize) };
         if self
             .state
             .compare_exchange_weak(EXCLUSIVE_GUARD, 0, Ordering::Release, Ordering::Relaxed)
@@ -98,7 +94,6 @@ impl RawRwLock {
             let result = self.lock_shared_slow(false, None);
             debug_assert!(result);
         }
-        unsafe { deadlock::acquire_resource(self as *const _ as usize) };
     }
 
     /// Attempts to acquire a shared lock without blocking.
@@ -109,16 +104,12 @@ impl RawRwLock {
         } else {
             self.try_lock_shared_slow(false)
         };
-        if result {
-            unsafe { deadlock::acquire_resource(self as *const _ as usize) };
-        }
         result
     }
 
     /// Releases a shared lock.
     #[inline]
     pub fn unlock_shared(&self) {
-        unsafe { deadlock::release_resource(self as *const _ as usize) };
         let state = self.state.load(Ordering::Relaxed);
         if state & PARKED_BIT == 0
             || (state & UPGRADING_BIT == 0 && state & GUARD_COUNT_MASK != SHARED_GUARD)

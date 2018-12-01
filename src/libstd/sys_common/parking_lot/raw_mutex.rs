@@ -9,7 +9,6 @@ use sync::atomic::{Ordering, AtomicU8, ATOMIC_U8_INIT};
 use time::Instant;
 use super::super::parking_lot_core::{
     self,
-    deadlock,
     ParkResult,
     SpinWait,
     UnparkResult,
@@ -49,7 +48,6 @@ impl RawMutex {
         {
             self.lock_slow(None);
         }
-        unsafe { deadlock::acquire_resource(self as *const _ as usize) };
     }
 
     /// Attempts to acquire this mutex without blocking.
@@ -67,7 +65,6 @@ impl RawMutex {
                 Ordering::Relaxed,
             ) {
                 Ok(_) => {
-                    unsafe { deadlock::acquire_resource(self as *const _ as usize) };
                     return true;
                 }
                 Err(x) => state = x,
@@ -78,7 +75,6 @@ impl RawMutex {
     /// Unlocks this mutex.
     #[inline]
     pub fn unlock(&self) {
-        unsafe { deadlock::release_resource(self as *const _ as usize) };
         if self
             .state
             .compare_exchange_weak(LOCKED_BIT, 0, Ordering::Release, Ordering::Relaxed)

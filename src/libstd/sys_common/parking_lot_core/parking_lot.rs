@@ -125,11 +125,6 @@ struct ThreadData {
 
     // Is the thread parked with a timeout?
     parked_with_timeout: Cell<bool>,
-
-    // Extra data for deadlock detection
-    // FIXME: once supported in stable replace with #[cfg...] & remove dummy struct/impl
-    #[allow(dead_code)]
-    deadlock_data: deadlock::DeadlockData,
 }
 
 impl ThreadData {
@@ -148,7 +143,6 @@ impl ThreadData {
             unpark_token: Cell::new(DEFAULT_UNPARK_TOKEN),
             park_token: Cell::new(DEFAULT_PARK_TOKEN),
             parked_with_timeout: Cell::new(false),
-            deadlock_data: deadlock::DeadlockData::new(),
         }
     }
 }
@@ -601,8 +595,6 @@ unsafe fn park_internal(
         Some(timeout) => thread_data.parker.park_until(timeout),
         None => {
             thread_data.parker.park();
-            // call deadlock detection on_unpark hook
-            deadlock::on_unpark(thread_data);
             true
         }
     };
@@ -1019,32 +1011,4 @@ unsafe fn unpark_filter_internal(
     }
 
     result
-}
-
-/// Just not supported when in libstd.
-pub mod deadlock {
-    pub(super) struct DeadlockData {}
-
-    impl DeadlockData {
-        pub(super) fn new() -> Self {
-            DeadlockData {}
-        }
-    }
-
-    /// Acquire a resource identified by key in the deadlock detector
-    /// Noop if deadlock_detection feature isn't enabled.
-    /// Note: Call after the resource is acquired
-    #[inline]
-    pub unsafe fn acquire_resource(_key: usize) {}
-
-    /// Release a resource identified by key in the deadlock detector.
-    /// Noop if deadlock_detection feature isn't enabled.
-    /// Note: Call before the resource is released
-    /// # Panics
-    /// Panics if the resource was already released or wasn't acquired in this thread.
-    #[inline]
-    pub unsafe fn release_resource(_key: usize) {}
-
-    #[inline]
-    pub(super) unsafe fn on_unpark(_td: &super::ThreadData) {}
 }
