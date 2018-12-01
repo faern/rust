@@ -7,7 +7,6 @@
 
 use sys_common::parking_lot_core::{
     self,
-    deadlock,
     ParkResult,
     RequeueOp,
     UnparkResult,
@@ -306,9 +305,7 @@ impl Condvar {
             }
 
             // ... and re-lock it once we are done sleeping
-            if result == ParkResult::Unparked(TOKEN_HANDOFF) {
-                deadlock::acquire_resource(mutex as *const _ as usize);
-            } else {
+            if result != ParkResult::Unparked(TOKEN_HANDOFF) {
                 mutex.lock();
             }
 
