@@ -5,53 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[cfg(unix)]
-use libc;
 use sync::atomic::spin_loop_hint;
-#[cfg(not(any(windows, unix)))]
-use thread;
-#[cfg(windows)]
-use sys::c;
+use sys_common::thread_parker;
 
-// Yields the rest of the current timeslice to the OS
-#[cfg(windows)]
-#[inline]
-fn thread_yield() {
-    // Note that this is manually defined here rather than using the definition
-    // through `winapi`. The `winapi` definition comes from the `synchapi`
-    // header which enables the "synchronization.lib" library. It turns out,
-    // however that `Sleep` comes from `kernel32.dll` so this activation isn't
-    // necessary.
-    //
-    // This was originally identified in rust-lang/rust where on MinGW the
-    // libsynchronization.a library pulls in a dependency on a newer DLL not
-    // present in older versions of Windows. (see rust-lang/rust#49438)
-    //
-    // This is a bit of a hack for now and ideally we'd fix MinGW's own import
-    // libraries, but that'll probably take a lot longer than patching this here
-    // and avoiding the `synchapi` feature entirely.
-    extern "system" {
-        fn Sleep(a: c::DWORD);
-    }
-    unsafe {
-        // We don't use SwitchToThread here because it doesn't consider all
-        // threads in the system and the thread we are waiting for may not get
-        // selected.
-        Sleep(0);
-    }
-}
-#[cfg(unix)]
-#[inline]
-fn thread_yield() {
-    unsafe {
-        libc::sched_yield();
-    }
-}
-#[cfg(not(any(windows, unix)))]
-#[inline]
-fn thread_yield() {
-    thread::yield_now();
-}
 
 // Wastes some CPU time for the given number of iterations,
 // using a hint to indicate to the CPU that we are spinning.
@@ -98,7 +54,7 @@ impl SpinWait {
         if self.counter <= 3 {
             cpu_relax(1 << self.counter);
         } else {
-            thread_yield();
+            thread_parker::thread_yield();
         }
         true
     }
