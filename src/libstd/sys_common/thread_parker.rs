@@ -78,3 +78,8 @@ impl UnparkHandle {
     // released to avoid blocking the queue for too long.
     pub fn unpark(self) {}
 }
+
+#[inline]
+pub fn thread_yield() {
+    thread::yield_now();
+}

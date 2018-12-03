@@ -24,3 +24,8 @@ pub use self::futex::*;
 mod pthread;
 #[cfg(not(target_os = "linux"))]
 pub use self::pthread::*;
+
+#[inline]
+pub fn thread_yield() {
+    ::thread::yield_now();
+}
