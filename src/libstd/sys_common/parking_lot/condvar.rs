@@ -59,32 +59,6 @@ impl WaitTimeoutResult {
 /// - Can be statically constructed (requires the `const_fn` nightly feature).
 /// - Does not require any drop glue when dropped.
 /// - Inline fast path for the uncontended case.
-///
-/// # Examples
-///
-/// ```
-/// use parking_lot::{Mutex, Condvar};
-/// use sync::Arc;
-/// use thread;
-///
-/// let pair = Arc::new((Mutex::new(false), Condvar::new()));
-/// let pair2 = pair.clone();
-///
-/// // Inside of our lock, spawn a new thread, and then wait for it to start
-/// thread::spawn(move|| {
-///     let &(ref lock, ref cvar) = &*pair2;
-///     let mut started = lock.lock();
-///     *started = true;
-///     cvar.notify_one();
-/// });
-///
-/// // wait for the thread to start up
-/// let &(ref lock, ref cvar) = &*pair;
-/// let mut started = lock.lock();
-/// while !*started {
-///     cvar.wait(&mut started);
-/// }
-/// ```
 pub struct Condvar {
     state: AtomicPtr<RawMutex>,
 }
@@ -119,20 +93,6 @@ impl Condvar {
     /// `notify_one` are not buffered in any way.
     ///
     /// To wake up all threads, see `notify_all()`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use parking_lot::Condvar;
-    ///
-    /// let condvar = Condvar::new();
-    ///
-    /// // do something with condvar, share it with other threads
-    ///
-    /// if !condvar.notify_one() {
-    ///     println!("Nobody was listening for this.");
-    /// }
-    /// ```
     #[inline]
     pub fn notify_one(&self) -> bool {
         // Nothing to do if there are no waiting threads
@@ -421,7 +381,7 @@ mod tests {
 
     #[test]
     fn notify_one() {
-        let m = Arc::new(Mutex::INIT);
+        let m = Arc::new(RawMutex::INIT);
         let m2 = m.clone();
         let c = Arc::new(Condvar::new());
         let c2 = c.clone();
@@ -433,155 +393,87 @@ mod tests {
             m2.unlock();
         });
         c.wait(&m);
-    }
-
-    #[test]
-    fn notify_all() {
-        const N: usize = 10;
-
-        let data = Arc::new((Mutex::new(0), Condvar::new()));
-        let (tx, rx) = channel();
-        for _ in 0..N {
-            let data = data.clone();
-            let tx = tx.clone();
-            thread::spawn(move || {
-                let &(ref lock, ref cond) = &*data;
-                let mut cnt = lock.lock();
-                *cnt += 1;
-                if *cnt == N {
-                    tx.send(()).unwrap();
-                }
-                while *cnt != 0 {
-                    cond.wait(&mut cnt);
-                }
-                tx.send(()).unwrap();
-            });
-        }
-        drop(tx);
-
-        let &(ref lock, ref cond) = &*data;
-        rx.recv().unwrap();
-        let mut cnt = lock.lock();
-        *cnt = 0;
-        cond.notify_all();
-        drop(cnt);
-
-        for _ in 0..N {
-            rx.recv().unwrap();
-        }
+        m.unlock();
     }
 
     #[test]
     fn notify_one_return_true() {
-        let m = Arc::new(Mutex::new(()));
+        let m = Arc::new(RawMutex::INIT);
         let m2 = m.clone();
         let c = Arc::new(Condvar::new());
         let c2 = c.clone();
 
-        let mut g = m.lock();
+        m.lock();
         let _t = thread::spawn(move || {
-            let _g = m2.lock();
+            m2.lock();
             assert!(c2.notify_one());
+            m2.unlock();
         });
-        c.wait(&mut g);
+        c.wait(&m);
+        m.unlock();
     }
 
     #[test]
     fn notify_one_return_false() {
-        let m = Arc::new(Mutex::new(()));
+        let m = Arc::new(RawMutex::INIT);
         let c = Arc::new(Condvar::new());
 
         let _t = thread::spawn(move || {
-            let _g = m.lock();
+            m.lock();
             assert!(!c.notify_one());
+            m.unlock();
         });
-    }
-
-    #[test]
-    fn notify_all_return() {
-        const N: usize = 10;
-
-        let data = Arc::new((Mutex::new(0), Condvar::new()));
-        let (tx, rx) = channel();
-        for _ in 0..N {
-            let data = data.clone();
-            let tx = tx.clone();
-            thread::spawn(move || {
-                let &(ref lock, ref cond) = &*data;
-                let mut cnt = lock.lock();
-                *cnt += 1;
-                if *cnt == N {
-                    tx.send(()).unwrap();
-                }
-                while *cnt != 0 {
-                    cond.wait(&mut cnt);
-                }
-                tx.send(()).unwrap();
-            });
-        }
-        drop(tx);
-
-        let &(ref lock, ref cond) = &*data;
-        rx.recv().unwrap();
-        let mut cnt = lock.lock();
-        *cnt = 0;
-        assert_eq!(cond.notify_all(), N);
-        drop(cnt);
-
-        for _ in 0..N {
-            rx.recv().unwrap();
-        }
-
-        assert_eq!(cond.notify_all(), 0);
     }
 
     #[test]
     fn wait_for() {
-        let m = Arc::new(Mutex::new(()));
+        let m = Arc::new(RawMutex::INIT);
         let m2 = m.clone();
         let c = Arc::new(Condvar::new());
         let c2 = c.clone();
 
-        let mut g = m.lock();
-        let no_timeout = c.wait_for(&mut g, Duration::from_millis(1));
+        m.lock();
+        let no_timeout = c.wait_for(&m, Duration::from_millis(1));
         assert!(no_timeout.timed_out());
         let _t = thread::spawn(move || {
-            let _g = m2.lock();
+            m2.lock();
             c2.notify_one();
+            m2.unlock();
         });
-        let timeout_res = c.wait_for(&mut g, Duration::from_millis(u32::max_value() as u64));
+        let timeout_res = c.wait_for(&m, Duration::from_millis(u32::max_value() as u64));
         assert!(!timeout_res.timed_out());
-        drop(g);
+        m.unlock();
     }
 
     #[test]
     fn wait_until() {
-        let m = Arc::new(Mutex::new(()));
+        let m = Arc::new(RawMutex::INIT);
         let m2 = m.clone();
         let c = Arc::new(Condvar::new());
         let c2 = c.clone();
 
-        let mut g = m.lock();
-        let no_timeout = c.wait_until(&mut g, Instant::now() + Duration::from_millis(1));
+        m.lock();
+        let no_timeout = c.wait_until(&m, Instant::now() + Duration::from_millis(1));
         assert!(no_timeout.timed_out());
         let _t = thread::spawn(move || {
-            let _g = m2.lock();
+            m2.lock();
             c2.notify_one();
+            m2.unlock();
         });
         let timeout_res = c.wait_until(
-            &mut g,
+            &m,
             Instant::now() + Duration::from_millis(u32::max_value() as u64),
         );
         assert!(!timeout_res.timed_out());
-        drop(g);
+        m.unlock();
     }
 
     #[test]
     #[should_panic]
     fn two_mutexes() {
-        let m = Arc::new(Mutex::new(()));
+        let m = Arc::new(RawMutex::INIT);
         let m2 = m.clone();
-        let m3 = Arc::new(Mutex::new(()));
+        let m3 = Arc::new(RawMutex::INIT);
         let c = Arc::new(Condvar::new());
         let c2 = c.clone();
 
@@ -594,36 +486,43 @@ mod tests {
         }
 
         let (tx, rx) = channel();
-        let g = m.lock();
+        m.lock();
         let _t = thread::spawn(move || {
-            let mut g = m2.lock();
+            m2.lock();
             tx.send(()).unwrap();
-            c2.wait(&mut g);
+            c2.wait(&m2);
+            m2.unlock();
         });
-        drop(g);
+        m.unlock();
         rx.recv().unwrap();
-        let _g = m.lock();
+        m.lock();
         let _guard = PanicGuard(&*c);
-        let _ = c.wait(&mut m3.lock());
+        m3.lock();
+        let _ = c.wait(&m3);
+        m3.unlock();
+        m.unlock();
     }
 
     #[test]
     fn two_mutexes_disjoint() {
-        let m = Arc::new(Mutex::new(()));
+        let m = Arc::new(RawMutex::INIT);
         let m2 = m.clone();
-        let m3 = Arc::new(Mutex::new(()));
+        let m3 = Arc::new(RawMutex::INIT);
         let c = Arc::new(Condvar::new());
         let c2 = c.clone();
 
-        let mut g = m.lock();
+        m.lock();
         let _t = thread::spawn(move || {
-            let _g = m2.lock();
+            m2.lock();
             c2.notify_one();
+            m2.unlock();
         });
-        c.wait(&mut g);
-        drop(g);
+        c.wait(&m);
+        m.unlock();
 
-        let _ = c.wait_for(&mut m3.lock(), Duration::from_millis(1));
+        m3.lock();
+        let _ = c.wait_for(&m3, Duration::from_millis(1));
+        m3.unlock();
     }
 
     #[test]
