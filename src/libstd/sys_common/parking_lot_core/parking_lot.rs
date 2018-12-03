@@ -8,7 +8,6 @@
 use cell::{Cell, UnsafeCell};
 use ptr;
 use sync::atomic::{AtomicPtr, AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
-use thread::LocalKey;
 use time::{Duration, Instant};
 use sys_common::thread_parker::ThreadParker;
 use super::util::UncheckedOptionExt;
@@ -140,24 +139,26 @@ impl ThreadData {
     }
 }
 
-// Returns a ThreadData structure for the current thread
-unsafe fn get_thread_data(local: &mut Option<ThreadData>) -> &ThreadData {
-    // Try to read from thread-local storage, but return None if the TLS has
-    // already been destroyed.
-    fn try_get_tls(key: &'static LocalKey<ThreadData>) -> Option<*const ThreadData> {
-        key.try_with(|x| x as *const ThreadData).ok()
-    }
-
+// Invokes the given closure with a reference to the current thread `ThreadData`.
+fn with_thread_data<F, T>(f: F) -> T
+where
+    F: FnOnce(&ThreadData) -> T,
+{
     // Unlike word_lock::ThreadData, parking_lot::ThreadData is always expensive
     // to construct. Try to use a thread-local version if possible.
+    let mut thread_data_ptr = ptr::null();
     thread_local!(static THREAD_DATA: ThreadData = ThreadData::new());
-    if let Some(tls) = try_get_tls(&THREAD_DATA) {
-        return &*tls;
+    if let Ok(tls_thread_data) = THREAD_DATA.try_with(|x| x as *const ThreadData) {
+        thread_data_ptr = tls_thread_data;
     }
 
     // Otherwise just create a ThreadData on the stack
-    *local = Some(ThreadData::new());
-    local.as_ref().unwrap()
+    let mut thread_data_storage = None;
+    if thread_data_ptr.is_null() {
+        thread_data_ptr = thread_data_storage.get_or_insert_with(ThreadData::new);
+    }
+
+    f(unsafe { &*thread_data_ptr })
 }
 
 impl Drop for ThreadData {
@@ -552,104 +553,103 @@ unsafe fn park_internal(
     timeout: Option<Instant>,
 ) -> ParkResult {
     // Grab our thread data, this also ensures that the hash table exists
-    let mut thread_data = None;
-    let thread_data = get_thread_data(&mut thread_data);
+    with_thread_data(|thread_data| {
+        // Lock the bucket for the given key
+        let bucket = lock_bucket(key);
 
-    // Lock the bucket for the given key
-    let bucket = lock_bucket(key);
-
-    // If the validation function fails, just return
-    if !validate() {
-        bucket.mutex.unlock();
-        return ParkResult::Invalid;
-    }
-
-    // Append our thread data to the queue and unlock the bucket
-    thread_data.parked_with_timeout.set(timeout.is_some());
-    thread_data.next_in_queue.set(ptr::null());
-    thread_data.key.store(key, Ordering::Relaxed);
-    thread_data.park_token.set(park_token);
-    thread_data.parker.prepare_park();
-    if !bucket.queue_head.get().is_null() {
-        (*bucket.queue_tail.get()).next_in_queue.set(thread_data);
-    } else {
-        bucket.queue_head.set(thread_data);
-    }
-    bucket.queue_tail.set(thread_data);
-    bucket.mutex.unlock();
-
-    // Invoke the pre-sleep callback
-    before_sleep();
-
-    // Park our thread and determine whether we were woken up by an unpark or by
-    // our timeout. Note that this isn't precise: we can still be unparked since
-    // we are still in the queue.
-    let unparked = match timeout {
-        Some(timeout) => thread_data.parker.park_until(timeout),
-        None => {
-            thread_data.parker.park();
-            true
+        // If the validation function fails, just return
+        if !validate() {
+            bucket.mutex.unlock();
+            return ParkResult::Invalid;
         }
-    };
 
-    // If we were unparked, return now
-    if unparked {
-        return ParkResult::Unparked(thread_data.unpark_token.get());
-    }
-
-    // Lock our bucket again. Note that the hashtable may have been rehashed in
-    // the meantime. Our key may also have changed if we were requeued.
-    let (key, bucket) = lock_bucket_checked(&thread_data.key);
-
-    // Now we need to check again if we were unparked or timed out. Unlike the
-    // last check this is precise because we hold the bucket lock.
-    if !thread_data.parker.timed_out() {
-        bucket.mutex.unlock();
-        return ParkResult::Unparked(thread_data.unpark_token.get());
-    }
-
-    // We timed out, so we now need to remove our thread from the queue
-    let mut link = &bucket.queue_head;
-    let mut current = bucket.queue_head.get();
-    let mut previous = ptr::null();
-    while !current.is_null() {
-        if current == thread_data {
-            let next = (*current).next_in_queue.get();
-            link.set(next);
-            let mut was_last_thread = true;
-            if bucket.queue_tail.get() == current {
-                bucket.queue_tail.set(previous);
-            } else {
-                // Scan the rest of the queue to see if there are any other
-                // entries with the given key.
-                let mut scan = next;
-                while !scan.is_null() {
-                    if (*scan).key.load(Ordering::Relaxed) == key {
-                        was_last_thread = false;
-                        break;
-                    }
-                    scan = (*scan).next_in_queue.get();
-                }
-            }
-
-            // Callback to indicate that we timed out, and whether we were the
-            // last thread on the queue.
-            timed_out(key, was_last_thread);
-            break;
+        // Append our thread data to the queue and unlock the bucket
+        thread_data.parked_with_timeout.set(timeout.is_some());
+        thread_data.next_in_queue.set(ptr::null());
+        thread_data.key.store(key, Ordering::Relaxed);
+        thread_data.park_token.set(park_token);
+        thread_data.parker.prepare_park();
+        if !bucket.queue_head.get().is_null() {
+            (*bucket.queue_tail.get()).next_in_queue.set(thread_data);
         } else {
-            link = &(*current).next_in_queue;
-            previous = current;
-            current = link.get();
+            bucket.queue_head.set(thread_data);
         }
-    }
+        bucket.queue_tail.set(thread_data);
+        bucket.mutex.unlock();
 
-    // There should be no way for our thread to have been removed from the queue
-    // if we timed out.
-    debug_assert!(!current.is_null());
+        // Invoke the pre-sleep callback
+        before_sleep();
 
-    // Unlock the bucket, we are done
-    bucket.mutex.unlock();
-    ParkResult::TimedOut
+        // Park our thread and determine whether we were woken up by an unpark or by
+        // our timeout. Note that this isn't precise: we can still be unparked since
+        // we are still in the queue.
+        let unparked = match timeout {
+            Some(timeout) => thread_data.parker.park_until(timeout),
+            None => {
+                thread_data.parker.park();
+                true
+            }
+        };
+
+        // If we were unparked, return now
+        if unparked {
+            return ParkResult::Unparked(thread_data.unpark_token.get());
+        }
+
+        // Lock our bucket again. Note that the hashtable may have been rehashed in
+        // the meantime. Our key may also have changed if we were requeued.
+        let (key, bucket) = lock_bucket_checked(&thread_data.key);
+
+        // Now we need to check again if we were unparked or timed out. Unlike the
+        // last check this is precise because we hold the bucket lock.
+        if !thread_data.parker.timed_out() {
+            bucket.mutex.unlock();
+            return ParkResult::Unparked(thread_data.unpark_token.get());
+        }
+
+        // We timed out, so we now need to remove our thread from the queue
+        let mut link = &bucket.queue_head;
+        let mut current = bucket.queue_head.get();
+        let mut previous = ptr::null();
+        while !current.is_null() {
+            if current == thread_data {
+                let next = (*current).next_in_queue.get();
+                link.set(next);
+                let mut was_last_thread = true;
+                if bucket.queue_tail.get() == current {
+                    bucket.queue_tail.set(previous);
+                } else {
+                    // Scan the rest of the queue to see if there are any other
+                    // entries with the given key.
+                    let mut scan = next;
+                    while !scan.is_null() {
+                        if (*scan).key.load(Ordering::Relaxed) == key {
+                            was_last_thread = false;
+                            break;
+                        }
+                        scan = (*scan).next_in_queue.get();
+                    }
+                }
+
+                // Callback to indicate that we timed out, and whether we were the
+                // last thread on the queue.
+                timed_out(key, was_last_thread);
+                break;
+            } else {
+                link = &(*current).next_in_queue;
+                previous = current;
+                current = link.get();
+            }
+        }
+
+        // There should be no way for our thread to have been removed from the queue
+        // if we timed out.
+        debug_assert!(!current.is_null());
+
+        // Unlock the bucket, we are done
+        bucket.mutex.unlock();
+        ParkResult::TimedOut
+    })
 }
 
 /// Unparks one thread from the queue associated with the given key.
