@@ -219,34 +219,6 @@ impl Condvar {
         self.wait_until_internal(mutex, None);
     }
 
-    /// Waits on this condition variable for a notification, timing out after
-    /// the specified time instant.
-    ///
-    /// The semantics of this function are equivalent to `wait()` except that
-    /// the thread will be blocked roughly until `timeout` is reached. This
-    /// method should not be used for precise timing due to anomalies such as
-    /// preemption or platform differences that may not cause the maximum
-    /// amount of time waited to be precisely `timeout`.
-    ///
-    /// Note that the best effort is made to ensure that the time waited is
-    /// measured with a monotonic clock, and not affected by the changes made to
-    /// the system time.
-    ///
-    /// The returned `WaitTimeoutResult` value indicates if the timeout is
-    /// known to have elapsed.
-    ///
-    /// Like `wait`, the lock specified will be re-acquired when this function
-    /// returns, regardless of whether the timeout elapsed or not.
-    ///
-    /// # Panics
-    ///
-    /// This function will panic if another thread is waiting on the `Condvar`
-    /// with a different `Mutex` object.
-    #[inline]
-    pub fn wait_until(&self, mutex: &RawMutex, timeout: Instant) -> WaitTimeoutResult {
-        self.wait_until_internal(mutex, Some(timeout))
-    }
-
     // This is a non-generic function to reduce the monomorphization cost of
     // using `wait_until`.
     fn wait_until_internal(&self, mutex: &RawMutex, timeout: Option<Instant>) -> WaitTimeoutResult {
@@ -333,7 +305,14 @@ impl Condvar {
     /// returns, regardless of whether the timeout elapsed or not.
     #[inline]
     pub fn wait_for(&self, mutex: &RawMutex, timeout: Duration) -> WaitTimeoutResult {
-        self.wait_until(mutex, Instant::now() + timeout)
+        /// FIXME: As soon as `Instant::checked_add` is merged, use that instead.
+        const MAX_WAIT: Duration = Duration::from_nanos(u64::max_value());
+        let timeout = if timeout > MAX_WAIT {
+            None
+        } else {
+            Some(Instant::now() + timeout)
+        };
+        self.wait_until_internal(mutex, timeout)
     }
 }
 
@@ -355,7 +334,7 @@ mod tests {
     use sync::mpsc::channel;
     use sync::Arc;
     use thread;
-    use time::{Duration, Instant};
+    use time::Duration;
     use super::{Condvar, RawMutex};
 
     #[test]
@@ -427,29 +406,6 @@ mod tests {
             m2.unlock();
         });
         let timeout_res = c.wait_for(&m, Duration::from_millis(u32::max_value() as u64));
-        assert!(!timeout_res.timed_out());
-        m.unlock();
-    }
-
-    #[test]
-    fn wait_until() {
-        let m = Arc::new(RawMutex::INIT);
-        let m2 = m.clone();
-        let c = Arc::new(Condvar::new());
-        let c2 = c.clone();
-
-        m.lock();
-        let no_timeout = c.wait_until(&m, Instant::now() + Duration::from_millis(1));
-        assert!(no_timeout.timed_out());
-        let _t = thread::spawn(move || {
-            m2.lock();
-            c2.notify_one();
-            m2.unlock();
-        });
-        let timeout_res = c.wait_until(
-            &m,
-            Instant::now() + Duration::from_millis(u32::max_value() as u64),
-        );
         assert!(!timeout_res.timed_out());
         m.unlock();
     }
