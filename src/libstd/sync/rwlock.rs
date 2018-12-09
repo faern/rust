@@ -191,10 +191,8 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn read(&self) -> LockResult<RwLockReadGuard<T>> {
-        unsafe {
-            self.inner.read();
-            RwLockReadGuard::new(self)
-        }
+        self.inner.read();
+        unsafe { RwLockReadGuard::new(self) }
     }
 
     /// Attempts to acquire this rwlock with shared read access.
@@ -230,12 +228,10 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn try_read(&self) -> TryLockResult<RwLockReadGuard<T>> {
-        unsafe {
-            if self.inner.try_read() {
-                Ok(RwLockReadGuard::new(self)?)
-            } else {
-                Err(TryLockError::WouldBlock)
-            }
+        if self.inner.try_read() {
+            Ok(unsafe { RwLockReadGuard::new(self) }?)
+        } else {
+            Err(TryLockError::WouldBlock)
         }
     }
 
@@ -273,10 +269,8 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn write(&self) -> LockResult<RwLockWriteGuard<T>> {
-        unsafe {
-            self.inner.write();
-            RwLockWriteGuard::new(self)
-        }
+        self.inner.write();
+        unsafe { RwLockWriteGuard::new(self) }
     }
 
     /// Attempts to lock this rwlock with exclusive write access.
@@ -312,12 +306,10 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn try_write(&self) -> TryLockResult<RwLockWriteGuard<T>> {
-        unsafe {
-            if self.inner.try_write() {
-                Ok(RwLockWriteGuard::new(self)?)
-            } else {
-                Err(TryLockError::WouldBlock)
-            }
+        if self.inner.try_write() {
+            Ok(unsafe { RwLockWriteGuard::new(self) }?)
+        } else {
+            Err(TryLockError::WouldBlock)
         }
     }
 
