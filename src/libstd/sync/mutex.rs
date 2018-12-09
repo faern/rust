@@ -119,12 +119,7 @@ use sys_common::poison::{self, TryLockError, TryLockResult, LockResult};
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Mutex<T: ?Sized> {
-    // Note that this mutex is in a *box*, not inlined into the struct itself.
-    // Once a native mutex has been used once, its address can never change (it
-    // can't be moved). This mutex type can be safely moved at any time, so to
-    // ensure that the native mutex is used correctly we box the inner mutex to
-    // give it a constant address.
-    inner: Box<sys::Mutex>,
+    inner: sys::Mutex,
     poison: poison::Flag,
     data: UnsafeCell<T>,
 }
@@ -177,7 +172,7 @@ impl<T> Mutex<T> {
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new(t: T) -> Mutex<T> {
         Mutex {
-            inner: box sys::Mutex::new(),
+            inner: sys::Mutex::new(),
             poison: poison::Flag::new(),
             data: UnsafeCell::new(t),
         }

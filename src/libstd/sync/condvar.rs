@@ -120,7 +120,7 @@ impl WaitTimeoutResult {
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Condvar {
-    inner: Box<sys::Condvar>,
+    inner: sys::Condvar,
     mutex: AtomicUsize,
 }
 
@@ -138,7 +138,7 @@ impl Condvar {
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new() -> Condvar {
         Condvar {
-            inner: box sys::Condvar::new(),
+            inner: sys::Condvar::new(),
             mutex: AtomicUsize::new(0),
         }
     }
