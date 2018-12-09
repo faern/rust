@@ -21,34 +21,25 @@ unsafe impl Sync for Mutex {}
 
 impl Mutex {
     /// Creates a new mutex for use.
-    ///
-    /// Behavior is undefined if the mutex is moved after it is
-    /// first used with any of the functions below.
     #[unstable(feature = "sys_internals", issue = "0")] // FIXME: min_const_fn
     pub const fn new() -> Mutex { Mutex(RawMutex::INIT) }
 
     /// Locks the mutex blocking the current thread until it is available.
-    ///
-    /// Behavior is undefined if the mutex has been moved between this and any
-    /// previous function call.
     #[inline]
-    pub unsafe fn raw_lock(&self) { self.0.lock() }
+    pub fn raw_lock(&self) { self.0.lock() }
 
     /// Calls raw_lock() and then returns an RAII guard to guarantee the mutex
     /// will be unlocked.
     #[inline]
-    pub unsafe fn lock(&self) -> MutexGuard {
+    pub fn lock(&self) -> MutexGuard {
         self.raw_lock();
         MutexGuard(&self.0)
     }
 
     /// Attempts to lock the mutex without blocking, returning whether it was
     /// successfully acquired or not.
-    ///
-    /// Behavior is undefined if the mutex has been moved between this and any
-    /// previous function call.
     #[inline]
-    pub unsafe fn try_lock(&self) -> bool { self.0.try_lock() }
+    pub fn try_lock(&self) -> bool { self.0.try_lock() }
 
     /// Unlocks the mutex.
     ///

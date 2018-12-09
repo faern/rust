@@ -531,7 +531,7 @@ impl Condvar {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn notify_one(&self) {
-        unsafe { self.inner.notify_one() }
+        self.inner.notify_one()
     }
 
     /// Wakes up all blocked threads on this condvar.
@@ -571,7 +571,7 @@ impl Condvar {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn notify_all(&self) {
-        unsafe { self.inner.notify_all() }
+        self.inner.notify_all()
     }
 
     fn verify(&self, mutex: &sys_mutex::Mutex) {

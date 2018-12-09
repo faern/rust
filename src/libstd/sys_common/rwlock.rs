@@ -19,47 +19,32 @@ pub struct RWLock(RawRwLock);
 
 impl RWLock {
     /// Creates a new reader-writer lock for use.
-    ///
-    /// Behavior is undefined if the reader-writer lock is moved after it is
-    /// first used with any of the functions below.
     #[unstable(feature = "sys_internals", issue = "0")] // FIXME: min_const_fn
     pub const fn new() -> RWLock { RWLock(RawRwLock::INIT) }
 
     /// Acquires shared access to the underlying lock, blocking the current
     /// thread to do so.
-    ///
-    /// Behavior is undefined if the rwlock has been moved between this and any
-    /// previous method call.
     #[inline]
-    pub unsafe fn read(&self) { self.0.lock_shared() }
+    pub fn read(&self) { self.0.lock_shared() }
 
     /// Attempts to acquire shared access to this lock, returning whether it
     /// succeeded or not.
     ///
     /// This function does not block the current thread.
-    ///
-    /// Behavior is undefined if the rwlock has been moved between this and any
-    /// previous method call.
     #[inline]
-    pub unsafe fn try_read(&self) -> bool { self.0.try_lock_shared() }
+    pub fn try_read(&self) -> bool { self.0.try_lock_shared() }
 
     /// Acquires write access to the underlying lock, blocking the current thread
     /// to do so.
-    ///
-    /// Behavior is undefined if the rwlock has been moved between this and any
-    /// previous method call.
     #[inline]
-    pub unsafe fn write(&self) { self.0.lock_exclusive() }
+    pub fn write(&self) { self.0.lock_exclusive() }
 
     /// Attempts to acquire exclusive access to this lock, returning whether it
     /// succeeded or not.
     ///
     /// This function does not block the current thread.
-    ///
-    /// Behavior is undefined if the rwlock has been moved between this and any
-    /// previous method call.
     #[inline]
-    pub unsafe fn try_write(&self) -> bool { self.0.try_lock_exclusive() }
+    pub fn try_write(&self) -> bool { self.0.try_lock_exclusive() }
 
     /// Unlocks previously acquired shared access to this lock.
     ///

@@ -222,10 +222,8 @@ impl<T: ?Sized> Mutex<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn lock(&self) -> LockResult<MutexGuard<T>> {
-        unsafe {
-            self.inner.raw_lock();
-            MutexGuard::new(self)
-        }
+        self.inner.raw_lock();
+        unsafe { MutexGuard::new(self) }
     }
 
     /// Attempts to acquire this lock.
@@ -265,12 +263,10 @@ impl<T: ?Sized> Mutex<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn try_lock(&self) -> TryLockResult<MutexGuard<T>> {
-        unsafe {
-            if self.inner.try_lock() {
-                Ok(MutexGuard::new(self)?)
-            } else {
-                Err(TryLockError::WouldBlock)
-            }
+        if self.inner.try_lock() {
+            Ok(unsafe { MutexGuard::new(self) }?)
+        } else {
+            Err(TryLockError::WouldBlock)
         }
     }
 

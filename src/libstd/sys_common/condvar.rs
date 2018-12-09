@@ -30,11 +30,11 @@ impl Condvar {
 
     /// Signals one waiter on this condition variable to wake up.
     #[inline]
-    pub unsafe fn notify_one(&self) { self.0.notify_one(); }
+    pub fn notify_one(&self) { self.0.notify_one(); }
 
     /// Awakens all current waiters on this condition variable.
     #[inline]
-    pub unsafe fn notify_all(&self) { self.0.notify_all(); }
+    pub fn notify_all(&self) { self.0.notify_all(); }
 
     /// Waits for a signal on the specified mutex.
     ///
