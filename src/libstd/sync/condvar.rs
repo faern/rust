@@ -137,14 +137,10 @@ impl Condvar {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new() -> Condvar {
-        let mut c = Condvar {
+        Condvar {
             inner: box sys::Condvar::new(),
             mutex: AtomicUsize::new(0),
-        };
-        unsafe {
-            c.inner.init();
         }
-        c
     }
 
     /// Blocks the current thread until this condition variable receives a
@@ -614,9 +610,7 @@ impl Default for Condvar {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Drop for Condvar {
-    fn drop(&mut self) {
-        unsafe { self.inner.destroy() }
-    }
+    fn drop(&mut self) {}
 }
 
 #[cfg(test)]

@@ -176,15 +176,11 @@ impl<T> Mutex<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new(t: T) -> Mutex<T> {
-        let mut m = Mutex {
+        Mutex {
             inner: box sys::Mutex::new(),
             poison: poison::Flag::new(),
             data: UnsafeCell::new(t),
-        };
-        unsafe {
-            m.inner.init();
         }
-        m
     }
 }
 
@@ -335,7 +331,6 @@ impl<T: ?Sized> Mutex<T> {
                 (ptr::read(inner), ptr::read(poison), ptr::read(data))
             };
             mem::forget(self);
-            inner.destroy();  // Keep in sync with the `Drop` impl.
             drop(inner);
 
             poison::map_result(poison.borrow(), |_| data.into_inner())
@@ -372,14 +367,7 @@ impl<T: ?Sized> Mutex<T> {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 unsafe impl<#[may_dangle] T: ?Sized> Drop for Mutex<T> {
-    fn drop(&mut self) {
-        // This is actually safe b/c we know that there is no further usage of
-        // this mutex (it's up to the user to arrange for a mutex to get
-        // dropped, that's not our job)
-        //
-        // IMPORTANT: This code must be kept in sync with `Mutex::into_inner`.
-        unsafe { self.inner.destroy() }
-    }
+    fn drop(&mut self) {}
 }
 
 #[stable(feature = "mutex_from", since = "1.24.0")]
