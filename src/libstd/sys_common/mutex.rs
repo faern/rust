@@ -24,20 +24,8 @@ impl Mutex {
     ///
     /// Behavior is undefined if the mutex is moved after it is
     /// first used with any of the functions below.
-    /// Also, until `init` is called, behavior is undefined if this
-    /// mutex is ever used reentrantly, i.e., `raw_lock` or `try_lock`
-    /// are called by the thread currently holding the lock.
     #[unstable(feature = "sys_internals", issue = "0")] // FIXME: min_const_fn
     pub const fn new() -> Mutex { Mutex(RawMutex::INIT) }
-
-    /// Prepare the mutex for use.
-    ///
-    /// This should be called once the mutex is at a stable memory address.
-    /// If called, this must be the very first thing that happens to the mutex.
-    /// Calling it in parallel with or after any operation (including another
-    /// `init()`) is undefined behavior.
-    #[inline]
-    pub unsafe fn init(&mut self) { }
 
     /// Locks the mutex blocking the current thread until it is available.
     ///
@@ -71,13 +59,6 @@ impl Mutex {
     /// lock() whenever possible.
     #[inline]
     pub unsafe fn raw_unlock(&self) { self.0.unlock() }
-
-    /// Deallocates all resources associated with this mutex.
-    ///
-    /// Behavior is undefined if there are current or will be future users of
-    /// this mutex.
-    #[inline]
-    pub unsafe fn destroy(&self) { }
 }
 
 // not meant to be exported to the outside world, just the containing module

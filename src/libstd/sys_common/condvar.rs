@@ -28,13 +28,6 @@ impl Condvar {
     #[unstable(feature = "sys_internals", issue = "0")] // FIXME: min_const_fn
     pub const fn new() -> Condvar { Condvar(RawCondvar::new()) }
 
-    /// Prepares the condition variable for use.
-    ///
-    /// This should be called once the condition variable is at a stable memory
-    /// address.
-    #[inline]
-    pub unsafe fn init(&mut self) { }
-
     /// Signals one waiter on this condition variable to wake up.
     #[inline]
     pub unsafe fn notify_one(&self) { self.0.notify_one(); }
@@ -61,11 +54,4 @@ impl Condvar {
     pub unsafe fn wait_timeout(&self, mutex: &Mutex, dur: Duration) -> bool {
         !self.0.wait_for(mutex::raw(mutex), dur).timed_out()
     }
-
-    /// Deallocates all resources associated with this condition variable.
-    ///
-    /// Behavior is undefined if there are current or will be future users of
-    /// this condition variable.
-    #[inline]
-    pub unsafe fn destroy(&self) { }
 }

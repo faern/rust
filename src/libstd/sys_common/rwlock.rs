@@ -73,11 +73,4 @@ impl RWLock {
     /// exclusive access.
     #[inline]
     pub unsafe fn write_unlock(&self) { self.0.unlock_exclusive() }
-
-    /// Destroys OS-related resources with this RWLock.
-    ///
-    /// Behavior is undefined if there are any currently active users of this
-    /// lock.
-    #[inline]
-    pub unsafe fn destroy(&self) { }
 }

@@ -384,7 +384,6 @@ impl<T: ?Sized> RwLock<T> {
                 (ptr::read(inner), ptr::read(poison), ptr::read(data))
             };
             mem::forget(self);
-            inner.destroy(); // Keep in sync with the `Drop` impl.
             drop(inner);
 
             poison::map_result(poison.borrow(), |_| data.into_inner())
@@ -423,10 +422,7 @@ impl<T: ?Sized> RwLock<T> {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 unsafe impl<#[may_dangle] T: ?Sized> Drop for RwLock<T> {
-    fn drop(&mut self) {
-        // IMPORTANT: This code needs to be kept in sync with `RwLock::into_inner`.
-        unsafe { self.inner.destroy() }
-    }
+    fn drop(&mut self) {}
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
