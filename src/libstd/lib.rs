@@ -498,6 +498,19 @@ pub mod rt;
 #[cfg(not(test))]
 mod std_detect;
 
+#[path = "../parking_lot/core/src/lib.rs"]
+#[allow(missing_debug_implementations, missing_docs, dead_code, unused_imports)]
+mod parking_lot_core;
+
+#[path = "../parking_lot/lock_api/src/lib.rs"]
+#[allow(missing_debug_implementations, missing_docs, dead_code, unused_imports)]
+mod lock_api;
+
+#[path = "../parking_lot/src/lib.rs"]
+#[allow(missing_debug_implementations, missing_docs, dead_code, unused_imports)]
+mod parking_lot;
+
+
 #[doc(hidden)]
 #[unstable(feature = "stdsimd", issue = "48556")]
 #[cfg(not(test))]
