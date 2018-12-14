@@ -305,13 +305,7 @@ impl Condvar {
     /// returns, regardless of whether the timeout elapsed or not.
     #[inline]
     pub fn wait_for(&self, mutex: &RawMutex, timeout: Duration) -> WaitTimeoutResult {
-        /// FIXME: As soon as `Instant::checked_add` is merged, use that instead.
-        const MAX_WAIT: Duration = Duration::from_nanos(u64::max_value());
-        let timeout = if timeout > MAX_WAIT {
-            None
-        } else {
-            Some(Instant::now() + timeout)
-        };
+        let timeout = Instant::now().checked_add(timeout);
         self.wait_until_internal(mutex, timeout)
     }
 }
