@@ -58,3 +58,6 @@
 [submodule "src/doc/edition-guide"]
 	path = src/doc/edition-guide
 	url = https://github.com/rust-lang-nursery/edition-guide
+[submodule "src/parking_lot"]
+	path = src/parking_lot
+	url = https://github.com/faern/parking_lot

@@ -46,7 +46,7 @@ cc = "1.0"
 build_helper = { path = "../build_helper" }
 
 [features]
-default = ["compiler_builtins_c"]
+default = ["compiler_builtins_c", "i-am-libstd"]
 
 backtrace = []
 panic-unwind = ["panic_unwind"]
@@ -65,3 +65,6 @@ wasm_syscall = []
 # the environment for hooking up some thread-related information like the
 # current thread id and accessing/getting the current thread's TCB
 wasm-bindgen-threads = []
+
+# Features used by parking_lot
+i-am-libstd = []
