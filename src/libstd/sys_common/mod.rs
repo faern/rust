@@ -49,7 +49,6 @@ pub mod parking_lot;
 pub mod parking_lot_core;
 pub mod poison;
 pub mod remutex;
-pub mod rwlock;
 pub mod thread;
 pub mod thread_info;
 pub mod thread_local;

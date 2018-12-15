@@ -25,12 +25,6 @@ pub trait AtomicElisionExt {
     ) -> Result<Self::IntType, Self::IntType>;
 }
 
-// Indicates whether the target architecture supports lock elision
-#[inline]
-pub fn have_elision() -> bool {
-    cfg!(any(target_arch = "x86", target_arch = "x86_64"))
-}
-
 // This implementation is never actually called because it is guarded by
 // have_elision().
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
