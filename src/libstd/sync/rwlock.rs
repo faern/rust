@@ -14,7 +14,8 @@ use mem;
 use ops::{Deref, DerefMut};
 use ptr;
 use sys_common::poison::{self, LockResult, TryLockError, TryLockResult};
-use sys_common::rwlock as sys;
+use lock_api::RawRwLock as RawRwLockTrait;
+use parking_lot::RawRwLock;
 
 /// A reader-writer lock
 ///
@@ -75,7 +76,7 @@ use sys_common::rwlock as sys;
 /// [`Mutex`]: struct.Mutex.html
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct RwLock<T: ?Sized> {
-    inner: sys::RWLock,
+    inner: RawRwLock,
     poison: poison::Flag,
     data: UnsafeCell<T>,
 }
@@ -141,7 +142,7 @@ impl<T> RwLock<T> {
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new(t: T) -> RwLock<T> {
         RwLock {
-            inner: sys::RWLock::new(),
+            inner: RawRwLock::INIT,
             poison: poison::Flag::new(),
             data: UnsafeCell::new(t),
         }
@@ -191,7 +192,7 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn read(&self) -> LockResult<RwLockReadGuard<T>> {
-        self.inner.read();
+        self.inner.lock_shared();
         unsafe { RwLockReadGuard::new(self) }
     }
 
@@ -228,7 +229,7 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn try_read(&self) -> TryLockResult<RwLockReadGuard<T>> {
-        if self.inner.try_read() {
+        if self.inner.try_lock_shared() {
             Ok(unsafe { RwLockReadGuard::new(self) }?)
         } else {
             Err(TryLockError::WouldBlock)
@@ -269,7 +270,7 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn write(&self) -> LockResult<RwLockWriteGuard<T>> {
-        self.inner.write();
+        self.inner.lock_exclusive();
         unsafe { RwLockWriteGuard::new(self) }
     }
 
@@ -306,7 +307,7 @@ impl<T: ?Sized> RwLock<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn try_write(&self) -> TryLockResult<RwLockWriteGuard<T>> {
-        if self.inner.try_write() {
+        if self.inner.try_lock_exclusive() {
             Ok(unsafe { RwLockWriteGuard::new(self) }?)
         } else {
             Err(TryLockError::WouldBlock)
@@ -537,7 +538,7 @@ impl<'rwlock, T: ?Sized> DerefMut for RwLockWriteGuard<'rwlock, T> {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, T: ?Sized> Drop for RwLockReadGuard<'a, T> {
     fn drop(&mut self) {
-        unsafe { self.__lock.inner.read_unlock(); }
+        self.__lock.inner.unlock_shared();
     }
 }
 
@@ -545,7 +546,7 @@ impl<'a, T: ?Sized> Drop for RwLockReadGuard<'a, T> {
 impl<'a, T: ?Sized> Drop for RwLockWriteGuard<'a, T> {
     fn drop(&mut self) {
         self.__lock.poison.done(&self.__poison);
-        unsafe { self.__lock.inner.write_unlock(); }
+        self.__lock.inner.unlock_exclusive();
     }
 }
 
