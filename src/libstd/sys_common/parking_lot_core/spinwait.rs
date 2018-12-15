@@ -58,18 +58,4 @@ impl SpinWait {
         }
         true
     }
-
-    /// Spins without yielding the thread to the OS.
-    ///
-    /// Instead, the backoff is simply capped at a maximum value. This can be
-    /// used to improve throughput in `compare_exchange` loops that have high
-    /// contention.
-    #[inline]
-    pub fn spin_no_yield(&mut self) {
-        self.counter += 1;
-        if self.counter > 10 {
-            self.counter = 10;
-        }
-        cpu_relax(1 << self.counter);
-    }
 }
