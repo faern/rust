@@ -525,6 +525,10 @@ mod lock_api;
 #[allow(missing_debug_implementations, missing_docs, dead_code, unused_imports)]
 mod parking_lot;
 
+pub(crate) mod std {
+    pub use super::*;
+}
+
 // A "fake" module needed by the `stdsimd` module to compile, not actually
 // exported though.
 mod coresimd {
