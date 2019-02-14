@@ -486,6 +486,14 @@ mod memchr;
 // compiler
 pub mod rt;
 
+// Re-export itself under the name `std::`.
+// This is so crates included as submodules (parking_lot) can find all of
+// libstd under `std::*` as it expects.
+pub(crate) mod std {
+    pub use super::*;
+}
+
+
 // Pull in the `std_detect` crate directly into libstd. The contents of
 // `std_detect` are in a different repository: rust-lang-nursery/stdsimd.
 //
