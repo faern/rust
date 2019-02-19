@@ -6,7 +6,7 @@ use crate::io::lazy::Lazy;
 use crate::io::{self, Initializer, BufReader, LineWriter};
 use crate::sync::{Arc, Mutex, MutexGuard};
 use crate::sys::stdio;
-use crate::sys_common::remutex::{ReentrantMutex, ReentrantMutexGuard};
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use crate::thread::LocalKey;
 
 /// Stdout used by print! and println! macros
@@ -458,7 +458,7 @@ impl Stdout {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn lock(&self) -> StdoutLock {
-        StdoutLock { inner: self.inner.lock().unwrap_or_else(|e| e.into_inner()) }
+        StdoutLock { inner: self.inner.lock() }
     }
 }
 
@@ -611,7 +611,7 @@ impl Stderr {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn lock(&self) -> StderrLock {
-        StderrLock { inner: self.inner.lock().unwrap_or_else(|e| e.into_inner()) }
+        StderrLock { inner: self.inner.lock() }
     }
 }
 
