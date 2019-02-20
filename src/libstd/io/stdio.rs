@@ -4,9 +4,9 @@ use crate::cell::RefCell;
 use crate::fmt;
 use crate::io::lazy::Lazy;
 use crate::io::{self, Initializer, BufReader, LineWriter};
-use crate::sync::{Arc, Mutex, MutexGuard};
+use crate::sync::Arc;
 use crate::sys::stdio;
-use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
+use crate::parking_lot::{Mutex, MutexGuard, ReentrantMutex, ReentrantMutexGuard};
 use crate::thread::LocalKey;
 
 /// Stdout used by print! and println! macros
@@ -247,7 +247,7 @@ impl Stdin {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn lock(&self) -> StdinLock {
-        StdinLock { inner: self.inner.lock().unwrap_or_else(|e| e.into_inner()) }
+        StdinLock { inner: self.inner.lock() }
     }
 
     /// Locks this handle and reads a line of input into the specified buffer.
