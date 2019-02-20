@@ -36,7 +36,6 @@ pub mod condvar;
 pub mod io;
 pub mod mutex;
 pub mod poison;
-pub mod remutex;
 pub mod thread;
 pub mod thread_info;
 pub mod thread_local;
