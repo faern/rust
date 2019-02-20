@@ -755,30 +755,8 @@ pub fn _eprint(args: fmt::Arguments) {
 
 #[cfg(test)]
 mod tests {
-    use crate::panic::{UnwindSafe, RefUnwindSafe};
     use crate::thread;
     use super::*;
-
-    #[test]
-    fn stdout_unwind_safe() {
-        assert_unwind_safe::<Stdout>();
-    }
-    #[test]
-    fn stdoutlock_unwind_safe() {
-        assert_unwind_safe::<StdoutLock>();
-        assert_unwind_safe::<StdoutLock<'static>>();
-    }
-    #[test]
-    fn stderr_unwind_safe() {
-        assert_unwind_safe::<Stderr>();
-    }
-    #[test]
-    fn stderrlock_unwind_safe() {
-        assert_unwind_safe::<StderrLock>();
-        assert_unwind_safe::<StderrLock<'static>>();
-    }
-
-    fn assert_unwind_safe<T: UnwindSafe + RefUnwindSafe>() {}
 
     #[test]
     #[cfg_attr(target_os = "emscripten", ignore)]
