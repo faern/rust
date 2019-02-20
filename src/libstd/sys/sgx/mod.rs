@@ -29,7 +29,6 @@ pub mod os_str;
 pub mod path;
 pub mod pipe;
 pub mod process;
-pub mod rwlock;
 pub mod stack_overflow;
 pub mod thread;
 pub mod thread_local;
