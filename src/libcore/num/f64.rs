@@ -486,7 +486,7 @@ impl f64 {
     ///
     /// let value = -128.9_f32;
     /// let rounded = unsafe { value.approx_unchecked_to::<i8>() };
-    /// assert_eq!(rounded, std::i8::MIN);
+    /// assert_eq!(rounded, i8::MIN);
     /// ```
     ///
     /// # Safety
