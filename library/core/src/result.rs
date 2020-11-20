@@ -907,6 +907,29 @@ impl<T: Clone, E> Result<&mut T, E> {
     }
 }
 
+impl<T> Result<T, T> {
+    /// Returns the contained value no matter if the result is `Ok` or `Err`
+    /// when the types are the same.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #![feature(result_cloned)]
+    /// let x: Result<i32, i32> = Ok(5);
+    /// let y: Result<i32, i32> = Err(5);
+    /// assert_eq!(x.unwrap_either(), 5);
+    /// assert_eq!(y.unwrap_either(), 5);
+    /// ```
+    #[unstable(feature = "result_unwrap_either", issue = "none")]
+    #[inline]
+    pub fn unwrap_either(self) -> T {
+        match self {
+            Ok(t) => t,
+            Err(t) => t,
+        }
+    }
+}
+
 impl<T, E: fmt::Debug> Result<T, E> {
     /// Returns the contained [`Ok`] value, consuming the `self` value.
     ///
