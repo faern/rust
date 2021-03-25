@@ -227,9 +227,10 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
+use crate::convert::{self, Infallible};
 use crate::iter::{self, FromIterator, FusedIterator, TrustedLen};
 use crate::ops::{self, Deref, DerefMut};
-use crate::{convert, fmt, hint};
+use crate::{fmt, hint};
 
 /// `Result` is a type that represents either success ([`Ok`]) or failure ([`Err`]).
 ///
@@ -1132,7 +1133,7 @@ impl<T: Default, E> Result<T, E> {
 }
 
 #[unstable(feature = "unwrap_infallible", reason = "newly added", issue = "61695")]
-impl<T, E: Into<!>> Result<T, E> {
+impl<T, E: Into<Infallible>> Result<T, E> {
     /// Returns the contained [`Ok`] value, but never panics.
     ///
     /// Unlike [`unwrap`], this method is known to never panic on the
@@ -1162,13 +1163,13 @@ impl<T, E: Into<!>> Result<T, E> {
     pub fn into_ok(self) -> T {
         match self {
             Ok(x) => x,
-            Err(e) => e.into(),
+            Err(never) => match never.into() {},
         }
     }
 }
 
 #[unstable(feature = "unwrap_infallible", reason = "newly added", issue = "61695")]
-impl<T: Into<!>, E> Result<T, E> {
+impl<T: Into<Infallible>, E> Result<T, E> {
     /// Returns the contained [`Err`] value, but never panics.
     ///
     /// Unlike [`unwrap_err`], this method is known to never panic on the
@@ -1197,7 +1198,7 @@ impl<T: Into<!>, E> Result<T, E> {
     #[inline]
     pub fn into_err(self) -> E {
         match self {
-            Ok(x) => x.into(),
+            Ok(never) => match never.into() {},
             Err(e) => e,
         }
     }
